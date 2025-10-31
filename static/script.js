@@ -291,6 +291,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function handleQwenEditGeneration(statusUpdate) {
         if (apiKeyModelScopeEditInput.parentElement.style.display !== 'none' && !apiKeyModelScopeEditInput.value.trim()) { throw new Error('请输入 ModelScope API 密钥'); }
         if (!promptQwenEditInput.value.trim()) { throw new Error('请输入提示词'); }
+        if (modelStates['Qwen/Qwen-Image-Edit-2509'].inputs.files.length === 0) { throw new Error('请上传一张图片进行编辑'); }
         statusUpdate('正在生成图片...');
         const base64Images = await Promise.all(modelStates['Qwen/Qwen-Image-Edit-2509'].inputs.files.map(fileToBase64));
         const requestBody = { model: 'Qwen/Qwen-Image-Edit-2509', prompt: modelStates['Qwen/Qwen-Image-Edit-2509'].inputs.prompt, images: base64Images, apikey: apiKeyModelScopeEditInput.value };
@@ -395,14 +396,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     uploadArea.addEventListener('drop', (e) => handleFiles(Array.from(e.dataTransfer.files).filter(file => file.type.startsWith('image/'))));
     fileInput.addEventListener('change', (e) => handleFiles(Array.from(e.target.files).filter(file => file.type.startsWith('image/'))));
     
-    // [修正] 移除 handleFiles 函数中的重置逻辑
     function handleFiles(files) {
-        files.forEach(file => {
-             if (!selectedFiles.some(f => f.name === file.name)) {
-                selectedFiles.push(file);
-                createThumbnail(file);
-             }
-        });
+        // Since it's a single file upload, clear previous selections.
+        selectedFiles = [];
+        thumbnailsContainer.innerHTML = '';
+
+        const file = files[0]; // Take only the first file
+        if (file && file.type.startsWith('image/')) {
+            selectedFiles.push(file);
+            createThumbnail(file);
+        }
     }
 
     function createThumbnail(file) {
@@ -412,7 +415,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             const img = document.createElement('img'); img.src = e.target.result; img.alt = file.name;
             const removeBtn = document.createElement('button'); removeBtn.className = 'remove-btn'; removeBtn.innerHTML = '×';
             removeBtn.onclick = () => {
-                selectedFiles = selectedFiles.filter(f => f.name !== file.name);
+                selectedFiles = []; // Clear the file array
                 wrapper.remove();
             };
             wrapper.appendChild(img); wrapper.appendChild(removeBtn); thumbnailsContainer.appendChild(wrapper);
