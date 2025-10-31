@@ -26,7 +26,14 @@ async function callModelScope(model: string, apikey: string, parameters: any, ti
         "Authorization": `Bearer ${apikey}`,
         "Content-Type": "application/json",
     };
+    
     console.log(`[ModelScope] Submitting task for model: ${model}`);
+    
+    // Check if this is the image editing model and image parameter exists
+    if (model === "Qwen/Qwen-Image-Edit-2509" && !parameters.image) {
+        throw new Error("Qwen Image Edit 需要上传图片");
+    }
+    
     const generationResponse = await fetch(`${base_url}v1/images/generations`, {
         method: "POST",
         headers: { ...common_headers, "X-ModelScope-Async-Mode": "true" },
@@ -106,12 +113,23 @@ serve(async (req) => {
             if (!modelscopeApiKey) { return createJsonErrorResponse("ModelScope API key is not set.", 401); }
             if (!prompt) { return createJsonErrorResponse("Prompt is required.", 400); }
 
-            const modelToUse = "Qwen/Qwen-Image-Edit-2509";
+            // Use the model from the request, defaulting to Qwen Image Edit if not specified
+            const modelToUse = model || "Qwen/Qwen-Image-Edit-2509";
             const modelScopeParameters: any = { prompt: prompt };
 
-            if (images && Array.isArray(images) && images.length > 0) {
-                // Assuming ModelScope expects a single image URL for editing
-                modelScopeParameters.image = images[0];
+            // For image editing model, we need to include the image
+            if (modelToUse === "Qwen/Qwen-Image-Edit-2509") {
+                if (images && Array.isArray(images) && images.length > 0) {
+                    // For image editing, we need to send the image as part of the request
+                    // Store the image data for later use
+                    modelScopeParameters.image = images[0];
+                } else {
+                    // For Qwen Image Edit, an image is required
+                    throw new Error("Qwen Image Edit 需要上传图片");
+                }
+            } else {
+                // For other models, use the parameters from the request or defaults
+                Object.assign(modelScopeParameters, parameters || {});
             }
 
             const timeoutSeconds = timeout || (modelToUse.includes('Qwen') ? 120 : 180); 
