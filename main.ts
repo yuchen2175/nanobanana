@@ -14,29 +14,7 @@ function createJsonErrorResponse(message: string, statusCode = 500) {
 // --- 辅助函数：休眠/等待 ---
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// =======================================================
-// 模块 1: OpenRouter API 调用逻辑 (用于 nano banana)
-// =======================================================
-async function callOpenRouter(messages: any[], apiKey: string): Promise<{ type: 'image' | 'text'; content: string }> {
-    if (!apiKey) { throw new Error("callOpenRouter received an empty apiKey."); }
-    const openrouterPayload = { model: "google/gemini-2.5-flash-image-preview", messages };
-    console.log("Sending payload to OpenRouter:", JSON.stringify(openrouterPayload, null, 2));
-    const apiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST", headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
-        body: JSON.stringify(openrouterPayload)
-    });
-    if (!apiResponse.ok) {
-        const errorBody = await apiResponse.text();
-        throw new Error(`OpenRouter API error: ${apiResponse.status} ${apiResponse.statusText} - ${errorBody}`);
-    }
-    const responseData = await apiResponse.json();
-    console.log("OpenRouter Response:", JSON.stringify(responseData, null, 2));
-    const message = responseData.choices?.[0]?.message;
-    if (message?.images?.[0]?.image_url?.url) { return { type: 'image', content: message.images[0].image_url.url }; }
-    if (typeof message?.content === 'string' && message.content.startsWith('data:image/')) { return { type: 'image', content: message.content }; }
-    if (typeof message?.content === 'string' && message.content.trim() !== '') { return { type: 'text', content: message.content }; }
-    return { type: 'text', content: "[模型没有返回有效内容]" };
-}
+
 
 // =======================================================
 // 模块 2: ModelScope API 调用逻辑 (用于 Qwen-Image 等)
@@ -110,12 +88,6 @@ serve(async (req) => {
         }); 
     }
 
-    if (pathname === "/api/key-status") {
-        const isSet = !!Deno.env.get("OPENROUTER_API_KEY");
-        return new Response(JSON.stringify({ isSet }), {
-            headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" },
-        });
-    }
 
     if (pathname === "/api/modelscope-key-status") {
         const isSet = !!Deno.env.get("MODELSCOPE_API_KEY");
@@ -130,36 +102,24 @@ serve(async (req) => {
             const requestData = await req.json();
             const { model, apikey, prompt, images, parameters, timeout } = requestData;
 
-            if (model === 'nanobanana') {
-                const openrouterApiKey = apikey || Deno.env.get("OPENROUTER_API_KEY");
-                if (!openrouterApiKey) { return createJsonErrorResponse("OpenRouter API key is not set.", 500); }
-                if (!prompt) { return createJsonErrorResponse("Prompt is required.", 400); }
-                const contentPayload: any[] = [{ type: "text", text: prompt }];
-                if (images && Array.isArray(images) && images.length > 0) {
-                    const imageParts = images.map(img => ({ type: "image_url", image_url: { url: img } }));
-                    contentPayload.push(...imageParts);
-                }
-                const webUiMessages = [{ role: "user", content: contentPayload }];
-                const result = await callOpenRouter(webUiMessages, openrouterApiKey);
-                if (result.type === 'image') {
-                    return new Response(JSON.stringify({ imageUrl: result.content }), { headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" } });
-                } else {
-                    return createJsonErrorResponse(`Model returned text instead of an image: "${result.content}"`, 400);
-                }
-            } else {
-                const modelscopeApiKey = apikey || Deno.env.get("MODELSCOPE_API_KEY");
-                if (!modelscopeApiKey) { return createJsonErrorResponse("ModelScope API key is not set.", 401); }
-                if (!parameters?.prompt) { return createJsonErrorResponse("Positive prompt is required for ModelScope models.", 400); }
-                
-                // [修改] 将 timeout (或默认值) 传递给 callModelScope
-                // Qwen 默认2分钟，其他默认3分钟
-                const timeoutSeconds = timeout || (model.includes('Qwen') ? 120 : 180); 
-                const result = await callModelScope(model, modelscopeApiKey, parameters, timeoutSeconds);
+            const modelscopeApiKey = apikey || Deno.env.get("MODELSCOPE_API_KEY");
+            if (!modelscopeApiKey) { return createJsonErrorResponse("ModelScope API key is not set.", 401); }
+            if (!prompt) { return createJsonErrorResponse("Prompt is required.", 400); }
 
-                return new Response(JSON.stringify(result), {
-                    headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
-                });
+            const modelToUse = "Qwen/Qwen-Image-Edit-2509";
+            const modelScopeParameters: any = { prompt: prompt };
+
+            if (images && Array.isArray(images) && images.length > 0) {
+                // Assuming ModelScope expects a single image URL for editing
+                modelScopeParameters.image = images[0];
             }
+
+            const timeoutSeconds = timeout || (modelToUse.includes('Qwen') ? 120 : 180); 
+            const result = await callModelScope(modelToUse, modelscopeApiKey, modelScopeParameters, timeoutSeconds);
+
+            return new Response(JSON.stringify(result), {
+                headers: { "Content-Type": "application/json", "Access-Control-Allow-Origin": "*" }
+            });
         } catch (error) {
             console.error("Error handling /generate request:", error);
             return createJsonErrorResponse(error.message, 500);
