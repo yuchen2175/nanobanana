@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 状态变量 ---
     let selectedFiles = [];
-    let currentModel = 'Qwen/Qwen-Image';
+    let currentModel = 'MoYouuu/MYHuman-QWen';
     
     const modelStates = {};
     modelCards.forEach(card => {
