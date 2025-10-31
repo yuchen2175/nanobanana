@@ -4,9 +4,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     const body = document.body;
     const modelSelectorContainer = document.querySelector('.model-selector-container');
     const modelCards = document.querySelectorAll('.model-card');
-    const nanobananaControls = document.getElementById('nanobanana-controls');
+    const qwenEditControls = document.getElementById('qwen-edit-controls');
     const modelscopeControls = document.getElementById('modelscope-controls');
-    const apiKeyOpenRouterInput = document.getElementById('api-key-input-openrouter');
+    const apiKeyModelScopeEditInput = document.getElementById('api-key-input-modelscope-edit');
     const apiKeyModelScopeInput = document.getElementById('api-key-input-modelscope');
     const generateBtns = document.querySelectorAll('.generate-btn');
 
@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const mainResultImageContainer = document.getElementById('main-result-image');
     const resultThumbnailsContainer = document.getElementById('result-thumbnails');
     
-    const nanobananaPromptRemark = document.getElementById('nanobanana-prompt-remark');
+    const qwenEditPromptRemark = document.getElementById('qwen-edit-prompt-remark');
     const modelscopePromptRemark = document.getElementById('modelscope-prompt-remark');
     const modelscopeNegativePromptRemark = document.getElementById('modelscope-negative-prompt-remark');
 
@@ -25,7 +25,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     const uploadArea = document.querySelector('.upload-area');
     const fileInput = document.getElementById('image-upload');
     const thumbnailsContainer = document.getElementById('thumbnails-container');
-    const promptNanoBananaInput = document.getElementById('prompt-input-nanobanana');
+    const promptQwenEditInput = document.getElementById('prompt-input-qwen-edit');
 
     const promptPositiveInput = document.getElementById('prompt-input-positive');
     const promptNegativeInput = document.getElementById('prompt-input-negative');
@@ -69,12 +69,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         updateHighlightPosition();
         setupModalListeners();
         
-        fetch('/api/key-status').then(res => res.json()).then(data => {
-            if (data.isSet) { apiKeyOpenRouterInput.parentElement.style.display = 'none'; }
-        }).catch(error => console.error("无法检查 OpenRouter API key 状态:", error));
-
         fetch('/api/modelscope-key-status').then(res => res.json()).then(data => {
-            if (data.isSet) { apiKeyModelScopeInput.parentElement.style.display = 'none'; }
+            if (data.isSet) { 
+                apiKeyModelScopeInput.parentElement.style.display = 'none'; 
+                apiKeyModelScopeEditInput.parentElement.style.display = 'none';
+            }
         }).catch(error => console.error("无法检查 ModelScope API key 状态:", error));
     }
     
@@ -82,8 +81,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         const state = modelStates[modelId];
         if (!state) return;
         
-        if (modelId === 'nanobanana') {
-            state.inputs.prompt = promptNanoBananaInput.value;
+        if (modelId === 'Qwen/Qwen-Image-Edit-2509') {
+            state.inputs.prompt = promptQwenEditInput.value;
             state.inputs.files = selectedFiles;
         } else {
             state.inputs.prompt = promptPositiveInput.value;
@@ -102,8 +101,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         
         updateActiveModelUI();
         
-        if (currentModel === 'nanobanana') {
-            promptNanoBananaInput.value = state.inputs.prompt;
+        if (currentModel === 'Qwen/Qwen-Image-Edit-2509') {
+            promptQwenEditInput.value = state.inputs.prompt;
             selectedFiles = state.inputs.files;
             thumbnailsContainer.innerHTML = '';
             selectedFiles.forEach(createThumbnail);
@@ -162,10 +161,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     function updateActiveModelUI() {
-        if (currentModel === 'nanobanana') { nanobananaControls.classList.remove('hidden'); modelscopeControls.classList.add('hidden'); } 
-        else { nanobananaControls.classList.add('hidden'); modelscopeControls.classList.remove('hidden'); }
-        nanobananaPromptRemark.textContent = ''; modelscopePromptRemark.textContent = ''; modelscopeNegativePromptRemark.textContent = '';
-        if (currentModel === 'nanobanana') { nanobananaPromptRemark.textContent = '(支持中文提示词)'; } 
+        if (currentModel === 'Qwen/Qwen-Image-Edit-2509') { qwenEditControls.classList.remove('hidden'); modelscopeControls.classList.add('hidden'); } 
+        else { qwenEditControls.classList.add('hidden'); modelscopeControls.classList.remove('hidden'); }
+        qwenEditPromptRemark.textContent = ''; modelscopePromptRemark.textContent = ''; modelscopeNegativePromptRemark.textContent = '';
+        if (currentModel === 'Qwen/Qwen-Image-Edit-2509') { qwenEditPromptRemark.textContent = '(支持中文提示词)'; } 
         else { let remarkText = ''; if (currentModel === 'Qwen/Qwen-Image') { remarkText = '(支持中文提示词)'; } else if (currentModel.includes('FLUX') || currentModel.includes('Kontext') || currentModel.includes('Krea')) { remarkText = '(请使用英文提示词)'; } modelscopePromptRemark.textContent = remarkText; modelscopeNegativePromptRemark.textContent = remarkText; }
     }
     
@@ -196,7 +195,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     function updateGenerateButtonState() {
         const isTaskRunning = modelStates[currentModel].task.isRunning;
-        const currentPanel = (currentModel === 'nanobanana') ? nanobananaControls : modelscopeControls;
+        const currentPanel = (currentModel === 'Qwen/Qwen-Image-Edit-2509') ? qwenEditControls : modelscopeControls;
         const currentButton = currentPanel.querySelector('.generate-btn');
         const btnText = currentButton.querySelector('.btn-text');
         const spinner = currentButton.querySelector('.spinner');
@@ -255,8 +254,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             statusUpdate('准备请求...');
 
             let imageUrls;
-            if (modelId === 'nanobanana') {
-                imageUrls = await handleNanoBananaGeneration(statusUpdate);
+            if (modelId === 'Qwen/Qwen-Image-Edit-2509') {
+                imageUrls = await handleQwenEditGeneration(statusUpdate);
             } else {
                 imageUrls = await handleModelScopeGeneration(statusUpdate);
             }
@@ -289,12 +288,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         return response;
     }
 
-    async function handleNanoBananaGeneration(statusUpdate) {
-        if (apiKeyOpenRouterInput.parentElement.style.display !== 'none' && !apiKeyOpenRouterInput.value.trim()) { throw new Error('请输入 OpenRouter API 密钥'); }
-        if (!promptNanoBananaInput.value.trim()) { throw new Error('请输入提示词'); }
+    async function handleQwenEditGeneration(statusUpdate) {
+        if (apiKeyModelScopeEditInput.parentElement.style.display !== 'none' && !apiKeyModelScopeEditInput.value.trim()) { throw new Error('请输入 ModelScope API 密钥'); }
+        if (!promptQwenEditInput.value.trim()) { throw new Error('请输入提示词'); }
         statusUpdate('正在生成图片...');
-        const base64Images = await Promise.all(modelStates.nanobanana.inputs.files.map(fileToBase64));
-        const requestBody = { model: 'nanobanana', prompt: modelStates.nanobanana.inputs.prompt, images: base64Images, apikey: apiKeyOpenRouterInput.value };
+        const base64Images = await Promise.all(modelStates['Qwen/Qwen-Image-Edit-2509'].inputs.files.map(fileToBase64));
+        const requestBody = { model: 'Qwen/Qwen-Image-Edit-2509', prompt: modelStates['Qwen/Qwen-Image-Edit-2509'].inputs.prompt, images: base64Images, apikey: apiKeyModelScopeEditInput.value };
         const response = await fetch('/generate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requestBody) });
         const data = await response.json();
         if (!response.ok || data.error) { throw new Error(data.error || `服务器错误: ${response.status}`); }
